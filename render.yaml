@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: ground-api
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./infra/docker/api.Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:8080
+      - key: POSTGRES_CONNECTION_STRING
+        fromDatabase:
+          name: ground-db
+          property: connectionString
+      - key: ANALYSIS_QUEUE_ENABLED
+        value: "false"
+      - key: ANALYSIS_QUEUE_NAME
+        value: analysis_jobs
+      - key: ALLOWED_ORIGIN
+        sync: false
+      - key: JWT_ISSUER
+        value: ground
+      - key: JWT_AUDIENCE
+        value: ground-clients
+      - key: JWT_SIGNING_KEY
+        sync: false
+
+databases:
+  - name: ground-db
+    plan: free
+    region: oregon
+    databaseName: ground
+    user: ground_user
