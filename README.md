@@ -177,3 +177,6 @@ The backend stack in this repo should not be deployed to Vercel as-is. It is a c
 Vercel deployment notes are in [docs/vercel-deployment.md](./docs/vercel-deployment.md).
 
 For a near-zero-cost backend prototype path, see [docs/render-free-cli-setup.md](./docs/render-free-cli-setup.md).
+
+Live demo link to frontend:
+- https://pulse-web-psi.vercel.app/dashboard
