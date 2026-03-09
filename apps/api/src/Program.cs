@@ -23,7 +23,9 @@ var appOptions = new AppOptions
     AnalysisQueueEnabled = !bool.TryParse(builder.Configuration["ANALYSIS_QUEUE_ENABLED"], out var queueEnabled)
         || queueEnabled,
     QueueName = builder.Configuration["ANALYSIS_QUEUE_NAME"] ?? "analysis_jobs",
-    AllowedOrigin = builder.Configuration["ALLOWED_ORIGIN"] ?? "http://localhost:3000",
+    AllowedOrigin = NormalizeAllowedOrigin(
+        builder.Configuration["ALLOWED_ORIGIN"] ?? "http://localhost:3000"
+    ),
     JwtIssuer = builder.Configuration["JWT_ISSUER"] ?? "ground",
     JwtAudience = builder.Configuration["JWT_AUDIENCE"] ?? "ground-clients",
     JwtSigningKey = builder.Configuration["JWT_SIGNING_KEY"] ?? "change-this-in-production"
@@ -180,6 +182,21 @@ static async Task ExecuteNonQueryAsync(NpgsqlConnection connection, string sql)
 {
     await using var command = new NpgsqlCommand(sql, connection);
     await command.ExecuteNonQueryAsync();
+}
+
+static string NormalizeAllowedOrigin(string value)
+{
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return value;
+    }
+
+    if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+    {
+        return value.TrimEnd('/');
+    }
+
+    return uri.GetLeftPart(UriPartial.Authority);
 }
 
 static string NormalizePostgresConnectionString(string rawValue)
