@@ -91,8 +91,7 @@ If you want the worker to hit Alpaca when local candle data is missing, set `ALP
 Start backend services:
 
 ```bash
-cd infra/compose
-docker compose --env-file ../../.env up --build
+npm run compose:up
 ```
 
 Or:
@@ -112,6 +111,13 @@ Open:
 
 - frontend: `http://localhost:3000/dashboard`
 - API: `http://localhost:8080/health`
+
+Useful checks:
+
+```bash
+npm run build:web
+npm run lint:web
+```
 
 ## Main endpoints
 
@@ -152,3 +158,11 @@ Analysis output table:
 - The frontend uses the SDK package instead of calling the API directly from every page.
 - The API currently includes placeholder JWT middleware only.
 - The UI is broader than the real backend implementation on purpose. The product surface is being laid out first, then the placeholder data gets replaced incrementally.
+
+## Deployment
+
+The frontend can be deployed to Vercel.
+
+The backend stack in this repo should not be deployed to Vercel as-is. It is a containerized API plus worker/database/queue services, so it should live on a container-friendly platform and expose a stable API URL to the frontend.
+
+Vercel deployment notes are in [docs/vercel-deployment.md](/Users/aladdinali/Development/pulse/ground-platform/docs/vercel-deployment.md).

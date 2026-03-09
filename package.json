@@ -2,12 +2,16 @@
   "name": "ground-platform",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "npm@10.8.2",
   "workspaces": [
     "apps/web",
     "packages/sdk",
     "packages/shared-types"
   ],
   "scripts": {
+    "compose:up": "docker compose -f infra/compose/docker-compose.yml --env-file .env up --build",
+    "compose:down": "docker compose -f infra/compose/docker-compose.yml down -v",
+    "dev": "npm run dev:web",
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
     "lint:web": "npm --workspace apps/web run lint"
