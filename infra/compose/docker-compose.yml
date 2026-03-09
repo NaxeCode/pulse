@@ -1,0 +1,80 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: ground-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ground}
+      POSTGRES_USER: ${POSTGRES_USER:-ground_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ground_pass}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ground_user} -d ${POSTGRES_DB:-ground}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: ground-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    container_name: ground-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      POSTGRES_CONNECTION_STRING: Host=postgres;Port=5432;Database=${POSTGRES_DB:-ground};Username=${POSTGRES_USER:-ground_user};Password=${POSTGRES_PASSWORD:-ground_pass}
+      REDIS_CONNECTION_STRING: redis:6379
+      ANALYSIS_QUEUE_NAME: analysis_jobs
+      ALLOWED_ORIGIN: http://localhost:3000
+      JWT_ISSUER: ${JWT_ISSUER:-ground}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-ground-clients}
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:-change-this-in-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-8080}:8080"
+
+  workers:
+    build:
+      context: ../..
+      dockerfile: infra/docker/workers.Dockerfile
+    container_name: ground-workers
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-ground}
+      POSTGRES_USER: ${POSTGRES_USER:-ground_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ground_pass}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ANALYSIS_QUEUE_NAME: analysis_jobs
+      ALPACA_API_KEY: ${ALPACA_API_KEY:-}
+      ALPACA_SECRET_KEY: ${ALPACA_SECRET_KEY:-}
+      ALPACA_BASE_URL: ${ALPACA_BASE_URL:-https://data.alpaca.markets/v2}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

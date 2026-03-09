@@ -1,0 +1,24 @@
+# Node
+node_modules/
+.npm/
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# .NET
+bin/
+obj/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
