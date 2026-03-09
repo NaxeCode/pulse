@@ -15,8 +15,10 @@ builder.Logging.AddJsonConsole();
 
 var appOptions = new AppOptions
 {
-    PostgresConnectionString = builder.Configuration["POSTGRES_CONNECTION_STRING"]
-        ?? "Host=postgres;Port=5432;Database=ground;Username=ground_user;Password=ground_pass",
+    PostgresConnectionString = NormalizePostgresConnectionString(
+        builder.Configuration["POSTGRES_CONNECTION_STRING"]
+            ?? "Host=postgres;Port=5432;Database=ground;Username=ground_user;Password=ground_pass"
+    ),
     RedisConnectionString = builder.Configuration["REDIS_CONNECTION_STRING"] ?? string.Empty,
     AnalysisQueueEnabled = !bool.TryParse(builder.Configuration["ANALYSIS_QUEUE_ENABLED"], out var queueEnabled)
         || queueEnabled,
@@ -103,3 +105,75 @@ app.MapCandleEndpoints();
 app.MapAnalysisEndpoints();
 
 app.Run();
+
+static string NormalizePostgresConnectionString(string rawValue)
+{
+    if (string.IsNullOrWhiteSpace(rawValue))
+    {
+        return rawValue;
+    }
+
+    if (rawValue.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
+        || rawValue.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+    {
+        var uri = new Uri(rawValue);
+        var userInfoParts = uri.UserInfo.Split(':', 2, StringSplitOptions.TrimEntries);
+        var username = Uri.UnescapeDataString(userInfoParts[0]);
+        var password = userInfoParts.Length > 1
+            ? Uri.UnescapeDataString(userInfoParts[1])
+            : string.Empty;
+        var database = uri.AbsolutePath.TrimStart('/');
+
+        var builder = new NpgsqlConnectionStringBuilder
+        {
+            Host = uri.Host,
+            Port = uri.IsDefaultPort ? 5432 : uri.Port,
+            Username = username,
+            Password = password,
+            Database = database
+        };
+
+        // Preserve SSL settings when present in URL params.
+        var sslMode = GetQueryValue(uri.Query, "sslmode");
+        if (!string.IsNullOrWhiteSpace(sslMode) && Enum.TryParse<SslMode>(sslMode, true, out var parsedSslMode))
+        {
+            builder.SslMode = parsedSslMode;
+        }
+
+        return builder.ConnectionString;
+    }
+
+    return rawValue;
+}
+
+static string? GetQueryValue(string query, string key)
+{
+    if (string.IsNullOrEmpty(query))
+    {
+        return null;
+    }
+
+    var trimmed = query.TrimStart('?');
+    foreach (var segment in trimmed.Split('&', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var parts = segment.Split('=', 2);
+        if (parts.Length == 0)
+        {
+            continue;
+        }
+
+        if (!string.Equals(parts[0], key, StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        if (parts.Length == 1)
+        {
+            return string.Empty;
+        }
+
+        return Uri.UnescapeDataString(parts[1]);
+    }
+
+    return null;
+}
