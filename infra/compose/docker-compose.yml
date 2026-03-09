@@ -38,6 +38,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       POSTGRES_CONNECTION_STRING: Host=postgres;Port=5432;Database=${POSTGRES_DB:-ground};Username=${POSTGRES_USER:-ground_user};Password=${POSTGRES_PASSWORD:-ground_pass}
       REDIS_CONNECTION_STRING: redis:6379
+      ANALYSIS_QUEUE_ENABLED: ${ANALYSIS_QUEUE_ENABLED:-true}
       ANALYSIS_QUEUE_NAME: analysis_jobs
       ALLOWED_ORIGIN: http://localhost:3000
       JWT_ISSUER: ${JWT_ISSUER:-ground}

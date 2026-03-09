@@ -6,6 +6,7 @@ public sealed class AppOptions
 
     public string PostgresConnectionString { get; set; } = string.Empty;
     public string RedisConnectionString { get; set; } = string.Empty;
+    public bool AnalysisQueueEnabled { get; set; } = true;
     public string QueueName { get; set; } = "analysis_jobs";
     public string AllowedOrigin { get; set; } = "http://localhost:3000";
     public string JwtIssuer { get; set; } = "ground";

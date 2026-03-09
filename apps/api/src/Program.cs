@@ -17,7 +17,9 @@ var appOptions = new AppOptions
 {
     PostgresConnectionString = builder.Configuration["POSTGRES_CONNECTION_STRING"]
         ?? "Host=postgres;Port=5432;Database=ground;Username=ground_user;Password=ground_pass",
-    RedisConnectionString = builder.Configuration["REDIS_CONNECTION_STRING"] ?? "redis:6379",
+    RedisConnectionString = builder.Configuration["REDIS_CONNECTION_STRING"] ?? string.Empty,
+    AnalysisQueueEnabled = !bool.TryParse(builder.Configuration["ANALYSIS_QUEUE_ENABLED"], out var queueEnabled)
+        || queueEnabled,
     QueueName = builder.Configuration["ANALYSIS_QUEUE_NAME"] ?? "analysis_jobs",
     AllowedOrigin = builder.Configuration["ALLOWED_ORIGIN"] ?? "http://localhost:3000",
     JwtIssuer = builder.Configuration["JWT_ISSUER"] ?? "ground",
@@ -30,6 +32,7 @@ builder.Services.Configure<AppOptions>(opts =>
 {
     opts.PostgresConnectionString = appOptions.PostgresConnectionString;
     opts.RedisConnectionString = appOptions.RedisConnectionString;
+    opts.AnalysisQueueEnabled = appOptions.AnalysisQueueEnabled;
     opts.QueueName = appOptions.QueueName;
     opts.AllowedOrigin = appOptions.AllowedOrigin;
     opts.JwtIssuer = appOptions.JwtIssuer;
@@ -43,12 +46,19 @@ builder.Services.AddSingleton(_ =>
     return dataSourceBuilder.Build();
 });
 
-builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
-    ConnectionMultiplexer.Connect(appOptions.RedisConnectionString));
-
 builder.Services.AddScoped<CandleRepository>();
-builder.Services.AddScoped<RedisQueuePublisher>();
 builder.Services.AddSingleton<PlaceholderPlatformService>();
+
+if (appOptions.AnalysisQueueEnabled && !string.IsNullOrWhiteSpace(appOptions.RedisConnectionString))
+{
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+        ConnectionMultiplexer.Connect(appOptions.RedisConnectionString));
+    builder.Services.AddScoped<IAnalysisRequestPublisher, RedisQueuePublisher>();
+}
+else
+{
+    builder.Services.AddScoped<IAnalysisRequestPublisher, NoopAnalysisRequestPublisher>();
+}
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -68,6 +78,13 @@ var app = builder.Build();
 
 app.UseCors("web");
 app.UseMiddleware<PlaceholderJwtMiddleware>();
+
+if (appOptions.AnalysisQueueEnabled && string.IsNullOrWhiteSpace(appOptions.RedisConnectionString))
+{
+    app.Logger.LogWarning(
+        "ANALYSIS_QUEUE_ENABLED is true but REDIS_CONNECTION_STRING is missing. Running with no-op queue mode."
+    );
+}
 
 if (app.Environment.IsDevelopment())
 {

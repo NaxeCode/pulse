@@ -4,7 +4,7 @@ using StackExchange.Redis;
 
 namespace Ground.Api.Services;
 
-public sealed class RedisQueuePublisher
+public sealed class RedisQueuePublisher : IAnalysisRequestPublisher
 {
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<RedisQueuePublisher> _logger;
@@ -15,7 +15,7 @@ public sealed class RedisQueuePublisher
         _logger = logger;
     }
 
-    public async Task EnqueueAsync(string queueName, RunAnalysisRequest request)
+    public async Task<bool> EnqueueAsync(string queueName, RunAnalysisRequest request, CancellationToken cancellationToken = default)
     {
         var payload = JsonSerializer.Serialize(new
         {
@@ -25,5 +25,6 @@ public sealed class RedisQueuePublisher
 
         await _redis.GetDatabase().ListLeftPushAsync(queueName, payload);
         _logger.LogInformation("Queued analysis request for {Symbol} on {Queue}", request.Symbol, queueName);
+        return true;
     }
 }

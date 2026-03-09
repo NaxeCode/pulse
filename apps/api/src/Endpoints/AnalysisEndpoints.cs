@@ -16,7 +16,7 @@ public static class AnalysisEndpoints
 
         group.MapPost("/run", async (
             RunAnalysisRequest request,
-            RedisQueuePublisher queuePublisher,
+            IAnalysisRequestPublisher queuePublisher,
             IOptions<AppOptions> options,
             CancellationToken cancellationToken) =>
         {
@@ -25,8 +25,9 @@ public static class AnalysisEndpoints
                 return Results.BadRequest(new { error = "symbol is required" });
             }
 
-            await queuePublisher.EnqueueAsync(options.Value.QueueName, request);
-            var response = new RunAnalysisResponse("queued", options.Value.QueueName);
+            var queued = await queuePublisher.EnqueueAsync(options.Value.QueueName, request, cancellationToken);
+            var queueName = queued ? options.Value.QueueName : "disabled";
+            var response = new RunAnalysisResponse("queued", queueName);
             return Results.Accepted($"/api/v1/analysis/run/{request.Symbol}", response);
         });
 

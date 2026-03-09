@@ -174,4 +174,6 @@ The frontend can be deployed to Vercel.
 
 The backend stack in this repo should not be deployed to Vercel as-is. It is a containerized API plus worker/database/queue services, so it should live on a container-friendly platform and expose a stable API URL to the frontend.
 
-Vercel deployment notes are in [docs/vercel-deployment.md](/Users/aladdinali/Development/pulse/ground-platform/docs/vercel-deployment.md).
+Vercel deployment notes are in [docs/vercel-deployment.md](./docs/vercel-deployment.md).
+
+For a near-zero-cost backend prototype path, see [docs/render-free-cli-setup.md](./docs/render-free-cli-setup.md).
