@@ -107,6 +107,15 @@ npm install
 npm run dev:web
 ```
 
+`npm run dev:web` now performs a small preflight:
+- runs Next.js directly in the web workspace
+
+Use a different port if needed:
+
+```bash
+PORT=3001 npm run dev:web
+```
+
 Open:
 
 - frontend: `http://localhost:3000/dashboard`
