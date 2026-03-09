@@ -1,21 +1,21 @@
 # Ground
 
-**Ground** is a work-in-progress financial analysis platform built as a production-minded monorepo.
+Ground is a financial analysis platform prototype.
 
-It combines a serverless-ready frontend, a containerized API, asynchronous Python workers, and a market-data pipeline designed for local iteration now and cloud deployment later.
+This repo is a monorepo with a Next.js frontend, an ASP.NET Core API, Python workers, Redis, and Postgres/TimescaleDB. The goal right now is not to be feature-complete. The goal is to have a clean local setup with the main system boundaries in place so the product can be built out without rewriting the foundation.
 
-> Status: active prototype. The core development loop is working locally, but the product surface, analysis depth, auth, and operational hardening are still in progress.
+It is still a work in progress. A lot of the product surface exists in the UI, but much of the data behind it is placeholder-backed.
 
-## Why This Exists
+## Stack
 
-Ground is structured to model a realistic financial systems stack without collapsing everything into a single service.
-
-- `Next.js` for the product UI
-- `ASP.NET Core` for API orchestration and business logic
-- `Redis` for lightweight job queueing
-- `Python` workers for ingestion and analysis tasks
-- `PostgreSQL + TimescaleDB` for market time-series storage
-- `Alpaca` integration points for market data and paper trading
+- `apps/web`: Next.js App Router frontend
+- `apps/api`: ASP.NET Core API
+- `services/workers`: Python workers for async jobs and analysis
+- `packages/sdk`: typed client used by the frontend
+- `packages/shared-types`: shared contracts
+- `Redis`: queueing
+- `Postgres + TimescaleDB`: time-series and analysis storage
+- `Alpaca`: market data / paper trading integration points
 
 ## Architecture
 
@@ -23,28 +23,26 @@ Ground is structured to model a realistic financial systems stack without collap
 
 ```text
 Next.js UI
-  -> typed SDK
-  -> ASP.NET API
-  -> Redis queue
-  -> Python workers
+  -> SDK
+  -> API
+  -> Redis
+  -> Workers
   -> TimescaleDB
-  -> Alpaca APIs
+  -> Alpaca
 ```
 
-This repository is intentionally split by responsibility so the frontend, API, workers, and shared packages can evolve independently.
-
-## Repository Layout
+## Repo layout
 
 ```text
 ground-platform/
   apps/
-    web/            # Next.js application
-    api/            # ASP.NET Core API
+    web/
+    api/
   services/
-    workers/        # Python worker processes
+    workers/
   packages/
-    sdk/            # Typed frontend client for the API
-    shared-types/   # Shared DTOs and contracts
+    sdk/
+    shared-types/
   infra/
     docker/
     compose/
@@ -52,83 +50,79 @@ ground-platform/
   docs/
 ```
 
-## Current Scope
+## Current state
 
-Today, the prototype includes:
+Implemented:
 
-- a dashboard that loads tracked symbols from the API
-- a symbol detail page with candle data
-- a typed SDK consumed by the frontend
-- an API endpoint to queue analysis jobs
-- a Redis-backed worker pipeline
-- analysis result persistence into PostgreSQL
-- local infrastructure with Docker Compose
+- app shell with dashboard, portfolio, analysis, alerts, settings, and symbol pages
+- typed SDK between frontend and backend
+- placeholder API surface for the main product areas
+- Redis-backed analysis queue
+- Python worker process
+- TimescaleDB init and seed data
+- Docker Compose local environment
 
-Not done yet:
+Not done:
 
-- real authentication and authorization
-- richer analytics and portfolio workflows
-- production deployment configuration
-- observability, retries, and job lifecycle visibility in the UI
+- real auth
+- real portfolio data
+- real alerting workflows
+- real execution flows
+- durable analysis history surfaced in the UI
+- production deployment setup
 
-## Local Development
+## Local development
 
-### Prerequisites
+Requirements:
 
 - Docker with `docker compose`
 - Node.js `20+`
 - npm `10+`
 
-### 1. Configure environment
-
-From the repo root:
+Set up env files:
 
 ```bash
 cp .env.example .env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-If you want workers to fetch live data when local candles are missing, add `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` to `.env`.
+If you want the worker to hit Alpaca when local candle data is missing, set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` in `.env`.
 
-### 2. Start the backend stack
+Start backend services:
 
 ```bash
 cd infra/compose
 docker compose --env-file ../../.env up --build
 ```
 
-Or from the repo root:
+Or:
 
 ```bash
 ./scripts/dev-up.sh
 ```
 
-Services started by Compose:
-
-- `postgres`
-- `redis`
-- `api`
-- `workers`
-
-### 3. Start the frontend
-
-In a second terminal:
+Start the frontend in another terminal:
 
 ```bash
 npm install
 npm run dev:web
 ```
 
-### 4. Open the app
+Open:
 
-- Frontend: `http://localhost:3000/dashboard`
-- API health: `http://localhost:8080/health`
-- API symbols: `http://localhost:8080/api/v1/symbols`
+- frontend: `http://localhost:3000/dashboard`
+- API: `http://localhost:8080/health`
 
-## API Surface
+## Main endpoints
 
+- `GET /api/v1/dashboard`
 - `GET /api/v1/symbols`
+- `GET /api/v1/symbols/{symbol}/workspace`
 - `GET /api/v1/candles/{symbol}`
+- `GET /api/v1/portfolio`
+- `GET /api/v1/analysis`
+- `GET /api/v1/alerts`
+- `GET /api/v1/settings`
 - `POST /api/v1/analysis/run`
 
 Example:
@@ -139,33 +133,22 @@ curl -X POST http://localhost:8080/api/v1/analysis/run \
   -d '{"symbol":"AAPL","analysisType":"basic"}'
 ```
 
-That request queues a Redis job on `analysis_jobs`, which is then consumed by the Python worker for analysis and persistence.
+That queues a job on `analysis_jobs`. The worker picks it up, runs placeholder analysis logic, and writes results back to Postgres.
 
-## Data Model
+## Data
 
-Primary time-series table:
+Primary market table:
 
 - `market_candles(symbol, ts, open, high, low, close, volume)`
-
-The table is initialized as a Timescale hypertable.
 
 Analysis output table:
 
 - `analysis_results(symbol, analysis_type, computed_at, rsi, sma_20, sma_50)`
 
-## Engineering Notes
+`market_candles` is initialized as a Timescale hypertable.
 
-- The frontend calls the backend through [`packages/sdk`](/Users/aladdinali/Development/pulse/ground-platform/packages/sdk), not raw `fetch()` calls spread across the app.
-- The API includes placeholder JWT middleware so auth can be tightened without rewriting the request pipeline.
-- Workers are deliberately isolated from the API process so ingestion and analysis logic can scale independently.
-- Seed candle data is included so the local environment is useful immediately after startup.
+## Notes
 
-## WIP Direction
-
-The next phase is not more scaffolding. It is deeper product behavior:
-
-- better analysis workflows and result retrieval
-- Alpaca-backed ingestion paths beyond fallback fetches
-- user/account boundaries
-- execution and paper-trading flows
-- stronger operational visibility across queue, workers, and API
+- The frontend uses the SDK package instead of calling the API directly from every page.
+- The API currently includes placeholder JWT middleware only.
+- The UI is broader than the real backend implementation on purpose. The product surface is being laid out first, then the placeholder data gets replaced incrementally.
