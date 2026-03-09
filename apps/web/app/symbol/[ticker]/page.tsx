@@ -6,15 +6,16 @@ import { SectionCard } from "@/components/SectionCard";
 import { StatusPill } from "@/components/StatusPill";
 
 type PageProps = {
-  params: {
+  params: Promise<{
     ticker: string;
-  };
+  }>;
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function SymbolPage({ params }: PageProps) {
-  const ticker = params.ticker.toUpperCase();
+  const { ticker: rawTicker } = await params;
+  const ticker = rawTicker.toUpperCase();
   const [workspace, candles] = await Promise.all([
     getSymbolWorkspace(ticker),
     getCandles(ticker)
