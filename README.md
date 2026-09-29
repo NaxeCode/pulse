@@ -1,146 +1,64 @@
 # Ground
 
-Ground is a financial analysis platform prototype.
+A prototype financial-analysis platform: a Next.js workspace over an ASP.NET Core API that queues analysis jobs to Python workers through Redis and stores market data in TimescaleDB.
 
-This repo is a monorepo with a Next.js frontend, an ASP.NET Core API, Python workers, Redis, and Postgres/TimescaleDB. The goal right now is not to be feature-complete. The goal is to have a clean local setup with the main system boundaries in place so the product can be built out without rewriting the foundation.
+[![status](https://img.shields.io/badge/status-wip-dbbc7f?style=flat&labelColor=2d353b)](#status)
+![.NET](https://img.shields.io/badge/ASP.NET_Core-8-7fbbb3?style=flat&labelColor=2d353b&logo=dotnet&logoColor=d3c6aa)
+![Next.js](https://img.shields.io/badge/Next.js-16-7fbbb3?style=flat&labelColor=2d353b&logo=nextdotjs&logoColor=d3c6aa)
+![Python](https://img.shields.io/badge/Python-workers-7fbbb3?style=flat&labelColor=2d353b&logo=python&logoColor=d3c6aa)
+![Redis](https://img.shields.io/badge/Redis-queue-7fbbb3?style=flat&labelColor=2d353b&logo=redis&logoColor=d3c6aa)
+![TimescaleDB](https://img.shields.io/badge/TimescaleDB-pg16-7fbbb3?style=flat&labelColor=2d353b&logo=postgresql&logoColor=d3c6aa)
+[![demo](https://img.shields.io/badge/demo-live-a7c080?style=flat&labelColor=2d353b)](https://pulse-web-psi.vercel.app)
 
-It is still a work in progress. A lot of the product surface exists in the UI, but much of the data behind it is placeholder-backed.
+## What it does
 
-## Stack
+- Serves a workspace UI (dashboard, symbol, portfolio, analysis, alerts, settings) from a Next.js App Router app that talks to the API only through a typed SDK package.
+- Exposes a versioned minimal API (`/api/v1/...`) for symbols, candles, dashboard, portfolio, analysis, alerts and settings, plus `/health`.
+- Reads OHLCV candles from a TimescaleDB hypertable (`market_candles`, primary key `(symbol, ts)`).
+- Accepts `POST /api/v1/analysis/run`, validates the symbol, pushes a job onto a Redis list and returns `202 Accepted`.
+- Runs a Python worker that consumes jobs, backfills missing candles from Alpaca market data when configured, computes RSI and 20/50-period SMAs with pandas, and writes the result to `analysis_results`.
 
-- `apps/web`: Next.js App Router frontend
-- `apps/api`: ASP.NET Core API
-- `services/workers`: Python workers for async jobs and analysis
-- `packages/sdk`: typed client used by the frontend
-- `packages/shared-types`: shared contracts
-- `Redis`: queueing
-- `Postgres + TimescaleDB`: time-series and analysis storage
-- `Alpaca`: market data / paper trading integration points
+## How it works
 
-## Architecture
-
-![Ground architecture](./architecture.png)
-
-```text
-Next.js UI
-  -> SDK
-  -> API
-  -> Redis
-  -> Workers
-  -> TimescaleDB
-  -> Alpaca
+```mermaid
+flowchart LR
+    W[Next.js web<br/>apps/web] -->|@ground/sdk| A[ASP.NET Core API<br/>apps/api]
+    A -->|SELECT candles| DB[(Postgres + TimescaleDB<br/>market_candles hypertable<br/>analysis_results)]
+    A -->|LPUSH analysis_jobs| Q[(Redis)]
+    Q -->|BRPOP| K[Python worker<br/>services/workers]
+    K -->|read candles| DB
+    K -->|missing data| AL[Alpaca market data API]
+    K -->|upsert candles<br/>insert results| DB
 ```
 
-## Repo layout
+Mechanisms that exist in the code today:
 
-```text
-ground-platform/
-  apps/
-    web/
-    api/
-  services/
-    workers/
-  packages/
-    sdk/
-    shared-types/
-  infra/
-    docker/
-    compose/
-  scripts/
-  docs/
-```
+- **Background worker over a queue.** The API publishes JSON jobs to the `analysis_jobs` Redis list (`RedisQueuePublisher`); the worker blocks on `BRPOP` with a 5 s timeout, and a failed job is logged and followed by a 2 s pause instead of killing the loop (`services/workers/main.py`).
+- **Graceful degradation.** If `ANALYSIS_QUEUE_ENABLED` is false or Redis is not configured, the API swaps in a no-op publisher and keeps serving (the Render blueprint uses this mode).
+- **Idempotent writes and schema setup.** Candle backfills use `INSERT ... ON CONFLICT (symbol, ts) DO UPDATE`, so re-fetching the same bars is safe. On startup the API runs `CREATE ... IF NOT EXISTS`, `create_hypertable(..., if_not_exists => TRUE)` and a seed with `ON CONFLICT DO NOTHING`, so repeated boots converge on the same schema.
+- **Bounded external calls.** Alpaca requests use a 20 s timeout.
+- **Operational basics.** JSON console logging, a single-origin CORS policy, `postgres://` URL normalization for hosted databases, and Docker health checks gating API and worker startup.
 
-## Current state
+Contracts shared between the web app and SDK live in `packages/shared-types`. The data model is two tables: `market_candles(symbol, ts, open, high, low, close, volume)` and `analysis_results(symbol, analysis_type, computed_at, rsi, sma_20, sma_50)`.
 
-Implemented:
+## Getting started
 
-- app shell with dashboard, portfolio, analysis, alerts, settings, and symbol pages
-- typed SDK between frontend and backend
-- placeholder API surface for the main product areas
-- Redis-backed analysis queue
-- Python worker process
-- TimescaleDB init and seed data
-- Docker Compose local environment
-
-Not done:
-
-- real auth
-- real portfolio data
-- real alerting workflows
-- real execution flows
-- durable analysis history surfaced in the UI
-- production deployment setup
-
-## Local development
-
-Requirements:
-
-- Docker with `docker compose`
-- Node.js `20+`
-- npm `10+`
-
-Set up env files:
+Requires Docker with `docker compose`, Node.js 20+ and npm 10+.
 
 ```bash
 cp .env.example .env
 cp apps/web/.env.example apps/web/.env.local
+npm run compose:up          # Postgres/TimescaleDB, Redis, API, worker
 ```
 
-If you want the worker to hit Alpaca when local candle data is missing, set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` in `.env`.
-
-Start backend services:
-
-```bash
-npm run compose:up
-```
-
-Or:
-
-```bash
-./scripts/dev-up.sh
-```
-
-Start the frontend in another terminal:
+In a second terminal:
 
 ```bash
 npm install
-npm run dev:web
+npm run dev:web             # http://localhost:3000/dashboard
 ```
 
-`npm run dev:web` now performs a small preflight:
-- runs Next.js directly in the web workspace
-
-Use a different port if needed:
-
-```bash
-PORT=3001 npm run dev:web
-```
-
-Open:
-
-- frontend: `http://localhost:3000/dashboard`
-- API: `http://localhost:8080/health`
-
-Useful checks:
-
-```bash
-npm run build:web
-npm run lint:web
-```
-
-## Main endpoints
-
-- `GET /api/v1/dashboard`
-- `GET /api/v1/symbols`
-- `GET /api/v1/symbols/{symbol}/workspace`
-- `GET /api/v1/candles/{symbol}`
-- `GET /api/v1/portfolio`
-- `GET /api/v1/analysis`
-- `GET /api/v1/alerts`
-- `GET /api/v1/settings`
-- `POST /api/v1/analysis/run`
-
-Example:
+The API listens on `http://localhost:8080` (`/health`, Swagger in Development). Queue an analysis job:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/analysis/run \
@@ -148,35 +66,19 @@ curl -X POST http://localhost:8080/api/v1/analysis/run \
   -d '{"symbol":"AAPL","analysisType":"basic"}'
 ```
 
-That queues a job on `analysis_jobs`. The worker picks it up, runs placeholder analysis logic, and writes results back to Postgres.
+Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` in `.env` to let the worker fetch candles that are not in the database. Other scripts: `npm run build:web`, `npm run lint:web`, `npm run compose:down`.
 
-## Data
+Deployment notes: [docs/vercel-deployment.md](docs/vercel-deployment.md) for the frontend, [docs/render-free-cli-setup.md](docs/render-free-cli-setup.md) and `render.yaml` for the API.
 
-Primary market table:
+## Status
 
-- `market_candles(symbol, ts, open, high, low, close, volume)`
+Work in progress. The system boundaries are real: web to SDK to API, API to Redis to worker, worker to TimescaleDB and Alpaca. Much of the product surface is not yet backed by real data.
 
-Analysis output table:
+- Real: candle reads, the analysis queue, the worker and its indicator math, schema setup.
+- Placeholder: dashboard, symbol workspace, portfolio, analysis workspace, alerts and settings responses (`PlaceholderPlatformService`), and auth (`PlaceholderJwtMiddleware` only tags requests; it does not validate tokens).
+- Not yet: reliable-queue semantics (a job popped by a worker that crashes mid-run is lost), retries on worker failures, analysis history in the UI, execution flows.
 
-- `analysis_results(symbol, analysis_type, computed_at, rsi, sma_20, sma_50)`
+The live demo serves the frontend shell with prototype data.
 
-`market_candles` is initialized as a Timescale hypertable.
-
-## Notes
-
-- The frontend uses the SDK package instead of calling the API directly from every page.
-- The API currently includes placeholder JWT middleware only.
-- The UI is broader than the real backend implementation on purpose. The product surface is being laid out first, then the placeholder data gets replaced incrementally.
-
-## Deployment
-
-The frontend can be deployed to Vercel.
-
-The backend stack in this repo should not be deployed to Vercel as-is. It is a containerized API plus worker/database/queue services, so it should live on a container-friendly platform and expose a stable API URL to the frontend.
-
-Vercel deployment notes are in [docs/vercel-deployment.md](./docs/vercel-deployment.md).
-
-For a near-zero-cost backend prototype path, see [docs/render-free-cli-setup.md](./docs/render-free-cli-setup.md).
-
-Live demo link to frontend:
-- https://pulse-web-psi.vercel.app/dashboard
+---
+<sub>Built by [Aladdin Ali](https://github.com/NaxeCode) · [naxecode.github.io](https://naxecode.github.io)</sub>
