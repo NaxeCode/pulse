@@ -1,3 +1,5 @@
+<img src=".github/brand/logo.svg" width="80" alt="" />
+
 # Ground
 
 A prototype financial-analysis platform: a Next.js workspace over an ASP.NET Core API that queues analysis jobs to Python workers through Redis and stores market data in TimescaleDB.
@@ -79,6 +81,10 @@ Work in progress. The system boundaries are real: web to SDK to API, API to Redi
 - Not yet: reliable-queue semantics (a job popped by a worker that crashes mid-run is lost), retries on worker failures, analysis history in the UI, execution flows.
 
 The live demo serves the frontend shell with prototype data.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
 
 ---
 <sub>Built by [Aladdin Ali](https://github.com/NaxeCode) · [naxecode.github.io](https://naxecode.github.io)</sub>
