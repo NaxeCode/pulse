@@ -18,7 +18,7 @@ test("a lost response to a POST does not submit the analysis again", async (t) =
     throw new TypeError("connection closed");
   });
 
-  await assert.rejects(runAnalysis("AAPL"), /connection closed/);
+  await assert.rejects(runAnalysis("AAPL"), /submission outcome is unknown.*connection closed/);
   assert.equal(fetch.mock.callCount(), 1);
 });
 
