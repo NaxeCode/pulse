@@ -54,6 +54,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       }
     } else {
       const reason = error instanceof Error ? error.message : String(error);
+      if (init?.method === "POST") {
+        throw new Error(
+          `No response from ${requestUrl}. The analysis submission outcome is unknown. Check the configured API address. Original error: ${reason}`
+        );
+      }
       throw new Error(
         `API fetch failed for ${requestUrl}. Confirm backend is running with \`npm run compose:up\`. Original error: ${reason}`
       );

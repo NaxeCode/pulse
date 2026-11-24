@@ -60,6 +60,8 @@ npm install
 npm run dev:web             # http://localhost:3000/dashboard
 ```
 
+The local web example sets `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8080`. If an existing setup points to `localhost` and the API listens only on IPv4, set that value in `apps/web/.env.local` and restart the web app. Reads can fall back to IPv4 automatically. An analysis POST uses the configured address once because the API may have enqueued the job before the connection dropped.
+
 The API listens on `http://localhost:8080` (`/health`, Swagger in Development). Queue an analysis job:
 
 ```bash
