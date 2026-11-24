@@ -14,7 +14,7 @@ public sealed class NoopAnalysisRequestPublisher : IAnalysisRequestPublisher
     public Task<bool> EnqueueAsync(string queueName, RunAnalysisRequest request, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "Analysis queue disabled; accepted request for {Symbol} without publishing to {Queue}",
+            "Analysis queue disabled. Skipped publishing {Symbol} to {Queue}",
             request.Symbol,
             queueName
         );

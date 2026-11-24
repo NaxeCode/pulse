@@ -17,7 +17,7 @@ A prototype financial-analysis platform: a Next.js workspace over an ASP.NET Cor
 - Serves a workspace UI (dashboard, symbol, portfolio, analysis, alerts, settings) from a Next.js App Router app that talks to the API only through a typed SDK package.
 - Exposes a versioned minimal API (`/api/v1/...`) for symbols, candles, dashboard, portfolio, analysis, alerts and settings, plus `/health`.
 - Reads OHLCV candles from a TimescaleDB hypertable (`market_candles`, primary key `(symbol, ts)`).
-- Accepts `POST /api/v1/analysis/run`, validates the symbol, pushes a job onto a Redis list and returns `202 Accepted`.
+- Validates the symbol on `POST /api/v1/analysis/run` and returns `202 Accepted` after Redis acknowledges the list push.
 - Runs a Python worker that consumes jobs, backfills missing candles from Alpaca market data when configured, computes RSI and 20/50-period SMAs with pandas, and writes the result to `analysis_results`.
 
 ## How it works
@@ -36,7 +36,7 @@ flowchart LR
 Mechanisms that exist in the code today:
 
 - **Background worker over a queue.** The API publishes JSON jobs to the `analysis_jobs` Redis list (`RedisQueuePublisher`); the worker blocks on `BRPOP` with a 5 s timeout, and a failed job is logged and followed by a 2 s pause instead of killing the loop (`services/workers/main.py`).
-- **Graceful degradation.** If `ANALYSIS_QUEUE_ENABLED` is false or Redis is not configured, the API swaps in a no-op publisher and keeps serving (the Render blueprint uses this mode).
+- **Graceful degradation.** If `ANALYSIS_QUEUE_ENABLED` is false or the Redis connection string is empty, a valid run request returns `503 Service Unavailable`. The Render blueprint uses this mode.
 - **Idempotent writes and schema setup.** Candle backfills use `INSERT ... ON CONFLICT (symbol, ts) DO UPDATE`, so re-fetching the same bars is safe. On startup the API runs `CREATE ... IF NOT EXISTS`, `create_hypertable(..., if_not_exists => TRUE)` and a seed with `ON CONFLICT DO NOTHING`, so repeated boots converge on the same schema.
 - **Bounded external calls.** Alpaca requests use a 20 s timeout.
 - **Operational basics.** JSON console logging, a single-origin CORS policy, `postgres://` URL normalization for hosted databases, and Docker health checks gating API and worker startup.
@@ -67,6 +67,10 @@ curl -X POST http://localhost:8080/api/v1/analysis/run \
   -H "Content-Type: application/json" \
   -d '{"symbol":"AAPL","analysisType":"basic"}'
 ```
+
+A blank symbol returns `400 Bad Request`. With the default queue enabled, a successful push returns `202` with `{"status":"queued","queue":"analysis_jobs"}`. Worker processing happens separately. A lost HTTP response leaves the submission outcome unknown.
+
+To check the route, run `dotnet test tests/Ground.Api.Tests` with the .NET 8 SDK. The HTTP tests use the disabled publisher and a recording publisher. To check the SDK’s handling of `503` and lost responses, run `node --test packages/sdk/test/analysis.test.mjs` with Node.js 22.18 or newer.
 
 Set `ALPACA_API_KEY` and `ALPACA_SECRET_KEY` in `.env` to let the worker fetch candles that are not in the database. Other scripts: `npm run build:web`, `npm run lint:web`, `npm run compose:down`.
 

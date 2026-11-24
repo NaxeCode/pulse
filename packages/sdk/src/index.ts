@@ -35,8 +35,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetchJson(requestUrl, init);
   } catch (error) {
-    // Some Ubuntu environments resolve localhost in ways that can fail for Node fetch.
-    if (API_BASE_URL.includes("localhost")) {
+    // A failed fetch can follow a successful enqueue. Only replay reads on IPv4.
+    if ((init?.method ?? "GET") === "GET" && API_BASE_URL.includes("localhost")) {
       const fallbackUrl = joinUrl(
         API_BASE_URL.replace("localhost", "127.0.0.1"),
         path
