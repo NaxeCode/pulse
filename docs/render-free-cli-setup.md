@@ -99,7 +99,7 @@ Redeploy web after updating env vars.
 
 ## 4) Notes on analysis runs in free mode
 
-`POST /api/v1/analysis/run` still returns accepted/queued-style responses for UI flow, but with queue disabled it does not publish jobs to Redis.
+The free blueprint disables the queue. A valid `POST /api/v1/analysis/run` returns `503 Service Unavailable` and the web client shows an error. A blank symbol returns `400 Bad Request`.
 
 To enable real async processing later:
 

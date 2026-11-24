@@ -25,10 +25,16 @@ public static class AnalysisEndpoints
                 return Results.BadRequest(new { error = "symbol is required" });
             }
 
-            var queued = await queuePublisher.EnqueueAsync(options.Value.QueueName, request, cancellationToken);
-            var queueName = queued ? options.Value.QueueName : "disabled";
-            var response = new RunAnalysisResponse("queued", queueName);
-            return Results.Accepted($"/api/v1/analysis/run/{request.Symbol}", response);
+            var queueName = options.Value.QueueName;
+            var queued = await queuePublisher.EnqueueAsync(queueName, request, cancellationToken);
+            if (!queued)
+            {
+                return Results.Json(
+                    new { error = "analysis queue is unavailable" },
+                    statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
+
+            return Results.Accepted(value: new RunAnalysisResponse("queued", queueName));
         });
 
         return group;
