@@ -10,7 +10,7 @@ A prototype financial-analysis platform: a Next.js workspace over an ASP.NET Cor
 ![Python](https://img.shields.io/badge/Python-workers-7fbbb3?style=flat&labelColor=2d353b&logo=python&logoColor=d3c6aa)
 ![Redis](https://img.shields.io/badge/Redis-queue-7fbbb3?style=flat&labelColor=2d353b&logo=redis&logoColor=d3c6aa)
 ![TimescaleDB](https://img.shields.io/badge/TimescaleDB-pg16-7fbbb3?style=flat&labelColor=2d353b&logo=postgresql&logoColor=d3c6aa)
-[![demo](https://img.shields.io/badge/demo-live-a7c080?style=flat&labelColor=2d353b)](https://pulse-web-psi.vercel.app)
+[![demo](https://img.shields.io/badge/demo-live-a7c080?style=flat&labelColor=2d353b)](https://ground.naxe.dev)
 
 ## What it does
 
