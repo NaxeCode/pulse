@@ -101,4 +101,4 @@ The live demo serves the frontend shell with prototype data.
 MIT. See [LICENSE](LICENSE).
 
 ---
-<sub>Built by [Aladdin Ali](https://github.com/NaxeCode) · [naxecode.github.io](https://naxecode.github.io)</sub>
+<sub>Built by [Aladdin Ali](https://github.com/NaxeCode) · [naxecode.github.io](https://naxe.dev/?utm_source=github&utm_medium=readme&utm_campaign=portfolio&utm_content=ground)</sub>
